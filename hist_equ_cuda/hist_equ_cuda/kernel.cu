@@ -60,7 +60,7 @@ __global__ void histogramKernel(int* d_out, int* d_in) {
 
 int main()
 {
-    Mat image = imread("../img.jpg", IMREAD_GRAYSCALE);
+    Mat image = imread("../images/img.jpg", IMREAD_GRAYSCALE);
     imshow("Original Image", image);
 
     // pointer to host memory
