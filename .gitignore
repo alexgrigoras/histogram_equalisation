@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+*.db
+hist_equ_cuda/.vs/hist_equ_cuda/v16/Browse.VC.db
+*.opendb
+*.db-wal
+*.db-shm
+*.db
+hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
+*.ipch
+*.db
+*.db
+hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
