@@ -96,6 +96,12 @@ __global__ void finalValuesKernel(int* d_out, float* d_in)
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = round(d_in[i] * 255);
 }
+// finalImage kernel
+__global__ void finalImageKernel(int* d_out, int* d_in, int* d_img)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    d_out[i] = (uchar)(d_in[d_img[i]]);
+}
 
 int main()
 {
@@ -190,11 +196,9 @@ int main()
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
+
     display_histogram(h_hist, "CUDA Histogram");
     
-    print_array(h_hist, dim_hist);
-    printf("\n------------------------------\n");
-
     // ******************************************************************************************
 
     //Probability distribution for intensity levels
@@ -228,21 +232,15 @@ int main()
     // Copy output vector from GPU buffer to host memory.
     cudaStatus = cudaMemcpy(h_PRk, d_PRk, dim_hist * sizeof(float), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed! 1");
+        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
-
-    print_array(h_PRk, dim_hist);
-    printf("\n------------------------------\n");
 
     // ******************************************************************************************
 
     int* h_cumHist;
     h_cumHist = new int[dim_hist];
     compute_cumulative_histogram(h_hist, h_cumHist);
-
-    print_array(h_cumHist, dim_hist);
-    printf("\n------------------------------\n");
 
     // ******************************************************************************************
 
@@ -289,11 +287,9 @@ int main()
     // Copy output vector from GPU buffer to host memory.
     cudaStatus = cudaMemcpy(h_Sk, d_Sk, dim_hist * sizeof(int), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed! 2");
+        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
-    print_array(h_Sk, dim_hist);
-    printf("\n------------------------------\n");
 
     // ******************************************************************************************
 
@@ -338,11 +334,9 @@ int main()
     // Copy output vector from GPU buffer to host memory.
     cudaStatus = cudaMemcpy(h_PSk, d_PSk, dim_hist * sizeof(float), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed! 2");
+        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
-    print_array(h_PSk, dim_hist);
-    printf("\n------------------------------\n");
 
     // ******************************************************************************************
 
@@ -377,13 +371,56 @@ int main()
     // Copy output vector from GPU buffer to host memory.
     cudaStatus = cudaMemcpy(h_finalValues, d_finalValues, dim_hist * sizeof(float), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed! 2");
+        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
-    print_array(h_finalValues, dim_hist);
-    printf("\n------------------------------\n");
 
-    display_histogram(h_finalValues, "CUDA histogram");
+    display_histogram(h_finalValues, "CUDA Equalized histogram");
+
+    // ******************************************************************************************
+
+    int* d_finalImage;
+
+    cudaStatus = cudaMalloc((void**)&d_finalImage, dim_image * sizeof(int));
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaMalloc failed!");
+        goto Error;
+    }
+
+    // Launch a kernel on the GPU with one thread for each element.
+    finalImageKernel <<< numBlocks, numThreadsPerBlock >>> (d_finalImage, d_Sk, d_image);
+
+    // block until the device has completed
+    cudaThreadSynchronize();
+    // device to host copy
+    // Check for any errors launching the kernel
+    cudaStatus = cudaGetLastError();
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        goto Error;
+    }
+    // cudaDeviceSynchronize waits for the kernel to finish, and returns
+    // any errors encountered during the launch.
+    cudaStatus = cudaDeviceSynchronize();
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+        goto Error;
+    }
+    // Copy output vector from GPU buffer to host memory.
+    cudaStatus = cudaMemcpy(h_image, d_finalImage, dim_image * sizeof(int), cudaMemcpyDeviceToHost);
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaMemcpy failed!");
+        goto Error;
+    }
+
+    for (int i = 0; i < h; i++) {
+        for (int j = 0; j < w; j++) {
+            image.at<uchar>(i, j) = h_image[i * w + j];
+        }
+    }
+
+    namedWindow("CUDA Equilized Image");
+    imshow("CUDA Equilized Image", image);
 
 Error:
     // free device memory
@@ -393,6 +430,8 @@ Error:
     cudaFree(d_cumHist);
     cudaFree(d_Sk);
     cudaFree(d_PSk);
+    cudaFree(d_finalValues);
+    //cudaFree(d_finalImage);
 
     // free host memory
     std::free(h_hist);
@@ -401,6 +440,8 @@ Error:
     std::free(h_cumHist);
     std::free(h_Sk);
     std::free(h_PSk);
+    std::free(h_finalValues);
+
 
     waitKey();
 
