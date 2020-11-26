@@ -122,6 +122,11 @@ int main()
     // array size and desired block size
     int numBlocks = dim_image / numThreadsPerBlock;
     size_t memSize = numBlocks * numThreadsPerBlock * sizeof(int);  // allocate host and device memory
+    cudaEvent_t start, stop;
+
+    // Generate events
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
     h_hist = new int[dim_hist];
     h_image = new int[dim_image];
@@ -139,6 +144,9 @@ int main()
     }
 
     // ******************************************************************************************
+
+    // Trigger event 'start'
+    cudaEventRecord(start, 0);
 
     // Copy host array to device array
     cudaStatus = cudaSetDevice(0);
@@ -419,6 +427,13 @@ int main()
         }
     }
 
+    /* CUDA Host / Device / Kernel Code ... */
+    cudaEventRecord(stop, 0); // Trigger Stop event
+    cudaEventSynchronize(stop); // Sync events (BLOCKS till last (stop in this case) has been recorded!)
+    float elapsedTime; // Initialize elapsedTime;
+    cudaEventElapsedTime(&elapsedTime, start, stop); // Calculate runtime, write to elapsedTime -- cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
+    printf("Execution Time GPU: %f\n", elapsedTime); // Print Elapsed time
+
     namedWindow("CUDA Equilized Image");
     imshow("CUDA Equilized Image", image);
 
@@ -442,6 +457,9 @@ Error:
     std::free(h_PSk);
     std::free(h_finalValues);
 
+    // Destroy CUDA Event API Events
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     waitKey();
 
