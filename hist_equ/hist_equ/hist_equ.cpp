@@ -2,6 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <chrono> 
+#include <math.h>
 
 using namespace std::chrono;
 using namespace std;
@@ -10,7 +11,14 @@ using namespace cv;
 void print_array(int* vect, int  dim)
 {
     for (long i = 0; i < dim; i++) {
-        printf("%d , ", vect[i]);
+        printf("%d ", vect[i]);
+    }
+}
+
+void print_array(float* vect, int  dim)
+{
+    for (long i = 0; i < dim; i++) {
+        printf("%f ", vect[i]);
     }
 }
 
@@ -68,24 +76,15 @@ void display_histogram(int histogram[], const char* name) {
 int main()
 {
     //Reading input image, PUT YOUR OWN IMAGE HERE
-    Mat image = imread("../img_small.jpg", IMREAD_GRAYSCALE);
+    Mat image = imread("../images/img.jpg", IMREAD_GRAYSCALE);
     Mat dst;
-
-    int h = image.rows, w = image.cols;
-    int* h_image;                           // size of array
-    int dim_image = h * w;
-    h_image = new int[dim_image];
-    for (int i = 0; i < h; i++) {
-        for (int j = 0; j < w; j++) {
-            h_image[j * w + i] = image.at<uchar>(j, i);
-        }
-    }
 
     auto start = high_resolution_clock::now();
 
     //Call function to create histogram
     int histogram[256];
     compute_histogram(image, histogram);
+
     //Get the image size
     int size = image.rows * image.cols;
     float alpha = 255.0 / size;
@@ -94,15 +93,18 @@ int main()
     for (int i = 0; i < 256; i++) {
         PRk[i] = (double)histogram[i] / size;
     }
+
     //Call function to create cumulative histogram
     int cumulativeHistogram[256];
     compute_cumulative_histogram(histogram, cumulativeHistogram);
+
     //Scaling operation
     int Sk[256];
     for (int i = 0; i < 256; i++)
     {
         Sk[i] = cvRound((double)cumulativeHistogram[i] * alpha);
     }
+
     //Initializing equalized histogram
     float PSk[256];
     for (int i = 0; i < 256; i++) {
@@ -112,11 +114,13 @@ int main()
     for (int i = 0; i < 256; i++) {
         PSk[Sk[i]] += PRk[i];
     }
+
     //Rounding to get final values
     int finalValues[256];
     for (int i = 0; i < 256; i++) {
         finalValues[i] = cvRound(PSk[i] * 255);
     }
+
     //Creating equalized image
     Mat finalImage = image.clone();
 
