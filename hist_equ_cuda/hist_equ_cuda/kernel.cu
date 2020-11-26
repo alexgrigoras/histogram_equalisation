@@ -106,7 +106,6 @@ __global__ void finalImageKernel(int* d_out, int* d_in, int* d_img)
 int main()
 {
     Mat image = imread("../images/img.jpg", IMREAD_GRAYSCALE);
-    imshow("Original Image", image);
 
     // pointer to host memory
     int h = image.rows, w = image.cols;
@@ -434,7 +433,7 @@ int main()
     cudaEventElapsedTime(&elapsedTime, start, stop); // Calculate runtime, write to elapsedTime -- cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution Time GPU: %f\n", elapsedTime); // Print Elapsed time
 
-    namedWindow("CUDA Equilized Image");
+    namedWindow("CUDA Equilized Image", WINDOW_NORMAL);
     imshow("CUDA Equilized Image", image);
 
 Error:
