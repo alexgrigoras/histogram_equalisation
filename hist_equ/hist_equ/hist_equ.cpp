@@ -147,7 +147,6 @@ int main()
 
     cout << "Execution time CPU opencv: " << duration.count() << endl;
 
-
     //Displaying source image
     namedWindow("Original Image");
     imshow("Original Image", image);
@@ -158,9 +157,6 @@ int main()
     imshow("Equilized Image", finalImage);
     //Displaying equalized image histogram
     display_histogram(finalValues, "Equilized Histogram");
-    //Saving image as a file
-    imwrite("EqualizedImage.jpg", finalImage);
-
 
     waitKey();
     return 0;
