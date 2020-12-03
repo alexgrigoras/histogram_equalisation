@@ -394,7 +394,7 @@ int main()
     /* CUDA Host / Device / Kernel Code ... */
     cudaEventRecord(stop, 0);                           
     cudaEventSynchronize(stop);                         
-    cudaEventElapsedTime(&elapsedTime, start, stop);                                // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
+    cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution time GPU: %f\n", elapsedTime);
 
 Error:
