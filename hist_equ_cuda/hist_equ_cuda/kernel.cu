@@ -135,8 +135,9 @@ int main()
 
     // ******************************************************************************************
 
-    // Start global timer
-    cudaEventRecord(start, 0);
+    // Compute image histogram
+
+    cudaEventRecord(start, 0);  // Start global timers
 
     // Copy host array to device array
     cudaStatus = cudaSetDevice(0);
@@ -199,7 +200,7 @@ int main()
 
     // ******************************************************************************************
 
-    //Probability distribution for intensity levels
+    // Probability distribution for intensity levels
 
     float* h_PRk, * d_PRk;
     h_PRk = new float[dim_hist];
@@ -238,7 +239,7 @@ int main()
 
     // ******************************************************************************************
 
-    //Scaling operation
+    // Scaling operation
 
     int* h_Sk, * d_Sk, * d_cumHist;
     h_Sk = new int[dim_hist];
@@ -281,7 +282,7 @@ int main()
 
     // ******************************************************************************************
 
-    //Initializing equalized histogram
+    // Mapping operation
 
     float* h_PSk, * d_PSk;
 
@@ -320,6 +321,8 @@ int main()
     }
 
     // ******************************************************************************************
+    
+    // Rounding to get final values
 
     int* h_finalValues, * d_finalValues;
     h_finalValues = new int[dim_hist];
@@ -352,6 +355,8 @@ int main()
     display_histogram(h_finalValues, "CUDA Equalized histogram");
 
     // ******************************************************************************************
+
+    // Creating equalized image
 
     int* d_finalImage;
 
