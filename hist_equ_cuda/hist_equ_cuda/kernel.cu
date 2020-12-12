@@ -14,53 +14,44 @@ using namespace std;
 
 void print_array(int* vect, int  dim)
 {
-    for (long i = 0; i < dim; i++) {
-        printf("%d ", vect[i]);
-    }
+    for (long i = 0; i < dim; i++) printf("%d ", vect[i]);
 }
 
 void print_array(float* vect, int  dim)
 {
-    for (long i = 0; i < dim; i++) {
-        printf("%f ", vect[i]);
-    }
+    for (long i = 0; i < dim; i++) printf("%f ", vect[i]);
 }
 
 void compute_cumulative_histogram(int histogram[], int cumulativeHistogram[]) {
     cumulativeHistogram[0] = histogram[0];
-    for (int i = 1; i < 256; i++) {
-        cumulativeHistogram[i] = histogram[i] + cumulativeHistogram[i - 1];
-    }
+    for (int i = 1; i < 256; i++) cumulativeHistogram[i] = histogram[i] + cumulativeHistogram[i - 1];
 }
 
 void display_histogram(int histogram[], const char* name) {
     int histogramWidth = 512;
     int histogramHeight = 400;
     int newHistogram[256];
+    int binWidth;
+    int maximumIntensity;
 
-    for (int i = 0; i < 256; i++) {
-        newHistogram[i] = histogram[i];
-    }
+    for (int i = 0; i < 256; i++) newHistogram[i] = histogram[i];
 
     //creating "bins" for the range of 256 intensity values
-    int binWidth = cvRound((double)histogramWidth / 256);
+    binWidth = cvRound((double)histogramWidth / 256);
     Mat histogramImage(histogramHeight, histogramWidth, CV_8UC1, Scalar(255, 255, 255));
+
     //finding maximum intensity level in the histogram
-    int maximumIntensity = newHistogram[0];
+    maximumIntensity = newHistogram[0];
     for (int i = 1; i < 256; i++) {
-        if (maximumIntensity < newHistogram[i]) {
-            maximumIntensity = newHistogram[i];
-        }
+        if (maximumIntensity < newHistogram[i]) maximumIntensity = newHistogram[i];
     }
+
     //normalizing histogram in terms of rows (y)
-    for (int i = 0; i < 256; i++) {
-        newHistogram[i] = ((double)newHistogram[i] / maximumIntensity) * histogramImage.rows;
-    }
+    for (int i = 0; i < 256; i++) newHistogram[i] = ((double)newHistogram[i] / maximumIntensity) * histogramImage.rows;
+
     //drawing the intensity level - line
-    for (int i = 0; i < 256; i++) {
-        line(histogramImage, Point(binWidth * (i), histogramHeight), Point(binWidth * (i), histogramHeight - newHistogram[i]), Scalar(0, 0, 0), 1, 8, 0);
-    }
-    // display
+    for (int i = 0; i < 256; i++) line(histogramImage, Point(binWidth * (i), histogramHeight), Point(binWidth * (i), histogramHeight - newHistogram[i]), Scalar(0, 0, 0), 1, 8, 0);
+    
     namedWindow(name, WINDOW_AUTOSIZE);
     imshow(name, histogramImage);
 }
@@ -101,17 +92,25 @@ __global__ void finalImageKernel(int* d_out, int* d_in, int* d_img)
 
 int main()
 {
+    /*
     string image_str = "../images/img0";
     string extension = ".jpg";
     string img_name = image_str + extension;
-    Mat image = imread(img_name, IMREAD_GRAYSCALE);
-    int h = image.rows, w = image.cols;
-    int* h_hist;                                                    // size of array
-    int* h_image;                                                   // size of array
+    */
+    Mat image = imread("D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda/x64/Debug/img0.jpg", IMREAD_GRAYSCALE);
+
+    int h = image.rows, w = image.cols;                             // image dimensions
+    int *h_hist, *d_hist;
+    int *h_image, *d_image;
+    float *h_PRk, *d_PRk;
+    int *h_cumHist;
+    int *h_Sk, *d_Sk, *d_cumHist;
+    float *h_PSk, *d_PSk;
+    int *h_finalValues, *d_finalValues;
+    int* d_finalImage;
     int dim_hist = 256;
-    int dim_image = h * w;                                          // 256K elements (1MB total)
-    int* d_hist;                                                    // pointer to device memory
-    int* d_image;                                                   // pointer to device memory
+    int dim_image = h * w;                                          // image size
+    float alpha = 255.0 / dim_image;
     cudaError_t cudaStatus;
     int numThreadsPerBlock = 256;                                   // define block size
     int numBlocks = dim_image / numThreadsPerBlock;
@@ -123,21 +122,24 @@ int main()
 
     h_hist = new int[dim_hist];
     h_image = new int[dim_image];
-    for (int i = 0; i < dim_hist; ++i)
-    {
-        h_hist[i] = 0;
-    }
+    h_PRk = new float[dim_hist];
+    h_cumHist = new int[dim_hist];
+    h_Sk = new int[dim_hist];
+    h_PSk = new float[dim_hist];
+    h_finalValues = new int[dim_hist];
+
+    for (int i = 0; i < dim_hist; ++i) h_hist[i] = 0;
+
     for (int i = 0; i < h; i++) {
         for (int j = 0; j < w; j++) {
             h_image[i * w + j] = image.at<uchar>(i, j);
         }
     }
 
-    // ******************************************************************************************
-
-    // Compute image histogram
-
     cudaEventRecord(start, 0);  // Start global timers
+
+    // ******************************************************************************************
+    // Compute image histogram
 
     // Copy host array to device array
     cudaStatus = cudaSetDevice(0);
@@ -199,18 +201,15 @@ int main()
     display_histogram(h_hist, "CUDA Histogram");
 
     // ******************************************************************************************
-
     // Probability distribution for intensity levels
 
-    float* h_PRk, * d_PRk;
-    h_PRk = new float[dim_hist];
     cudaStatus = cudaMalloc((void**)&d_PRk, dim_hist * sizeof(float));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
-    prkKernel << < 1, dim_hist >> > (d_PRk, d_hist, dim_image);
+    prkKernel <<< 1, dim_hist >>> (d_PRk, d_hist, dim_image);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -230,20 +229,12 @@ int main()
     }
 
     // ******************************************************************************************
-        
     // Compute Cumulative Histogram 
 
-    int* h_cumHist;
-    h_cumHist = new int[dim_hist];
     compute_cumulative_histogram(h_hist, h_cumHist);
 
     // ******************************************************************************************
-
     // Scaling operation
-
-    int* h_Sk, * d_Sk, * d_cumHist;
-    h_Sk = new int[dim_hist];
-    float alpha = 255.0 / dim_image;
 
     cudaStatus = cudaMalloc((void**)&d_Sk, dim_hist * sizeof(int));
     if (cudaStatus != cudaSuccess) {
@@ -261,7 +252,7 @@ int main()
         goto Error;
     }
 
-    skKernel << < 1, dim_hist >> > (d_Sk, d_cumHist, alpha);
+    skKernel <<< 1, dim_hist >>> (d_Sk, d_cumHist, alpha);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -281,15 +272,9 @@ int main()
     }
 
     // ******************************************************************************************
-
     // Mapping operation
 
-    float* h_PSk, * d_PSk;
-
-    h_PSk = new float[dim_hist];
-    for (int i = 0; i < 256; i++) {
-        h_PSk[i] = 0.0;
-    }
+    for (int i = 0; i < 256; i++) h_PSk[i] = 0.0;
     cudaStatus = cudaMalloc((void**)&d_PSk, dim_hist * sizeof(float));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
@@ -321,11 +306,7 @@ int main()
     }
 
     // ******************************************************************************************
-    
     // Rounding to get final values
-
-    int* h_finalValues, * d_finalValues;
-    h_finalValues = new int[dim_hist];
 
     cudaStatus = cudaMalloc((void**)&d_finalValues, dim_hist * sizeof(float));
     if (cudaStatus != cudaSuccess) {
@@ -355,10 +336,7 @@ int main()
     display_histogram(h_finalValues, "CUDA Equalized histogram");
 
     // ******************************************************************************************
-
     // Creating equalized image
-
-    int* d_finalImage;
 
     cudaStatus = cudaMalloc((void**)&d_finalImage, dim_image * sizeof(int));
     if (cudaStatus != cudaSuccess) {
@@ -366,7 +344,7 @@ int main()
         goto Error;
     }
 
-    finalImageKernel << < numBlocks, numThreadsPerBlock >> > (d_finalImage, d_Sk, d_image);
+    finalImageKernel <<< numBlocks, numThreadsPerBlock >>> (d_finalImage, d_Sk, d_image);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -391,14 +369,13 @@ int main()
         }
     }
 
-    /* CUDA Host / Device / Kernel Code ... */
     cudaEventRecord(stop, 0);                           
     cudaEventSynchronize(stop);                         
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution time GPU: %f\n", elapsedTime);
 
 Error:
-    // free device memory
+    // Free device memory
     cudaFree(d_hist);
     cudaFree(d_image);
     cudaFree(d_PRk);
@@ -407,7 +384,7 @@ Error:
     cudaFree(d_PSk);
     cudaFree(d_finalValues);
     cudaFree(d_finalImage);
-    // free host memory
+    // Free host memory
     std::free(h_hist);
     std::free(h_image);
     std::free(h_PRk);
