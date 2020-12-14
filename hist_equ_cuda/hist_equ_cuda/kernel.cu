@@ -22,11 +22,6 @@ void print_array(float* vect, int  dim)
     for (long i = 0; i < dim; i++) printf("%f ", vect[i]);
 }
 
-void compute_cumulative_histogram(int histogram[], int cumulativeHistogram[]) {
-    cumulativeHistogram[0] = histogram[0];
-    for (int i = 1; i < 256; i++) cumulativeHistogram[i] = histogram[i] + cumulativeHistogram[i - 1];
-}
-
 void display_histogram(int histogram[], const char* name) {
     int histogramWidth = 512;
     int histogramHeight = 400;
@@ -61,6 +56,19 @@ __global__ void histogramKernel(int* d_out, int* d_in) {
     int value = d_in[in];
 
     atomicAdd(&d_out[value], 1);
+}
+
+__global__ void cumHistKernel(int* d_out, int* d_in)
+{
+    int in = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int cdf_val = 0;
+
+    for (int i = 0; i < in; ++i)
+    {
+        cdf_val = cdf_val + d_in[i];
+    }
+
+    d_out[in] = cdf_val;
 }
 
 __global__ void prkKernel(float* d_out, int* d_in, int size)
@@ -107,10 +115,10 @@ int main()
     int h = image.rows, w = image.cols;                             // image dimensions
     int *h_hist, *d_hist;
     int *h_image, *d_image;
-    float *h_PRk, *d_PRk;
-    int *h_cumHist;
-    int *h_Sk, *d_Sk, *d_cumHist;
-    float *h_PSk, *d_PSk;
+    float *d_PRk;
+    int *d_cumHist;
+    int *d_Sk;
+    float *d_PSk;
     int *h_finalValues, *d_finalValues;
     int* d_finalImage;
     int dim_hist = 256;
@@ -127,10 +135,6 @@ int main()
 
     h_hist = new int[dim_hist];
     h_image = new int[dim_image];
-    h_PRk = new float[dim_hist];
-    h_cumHist = new int[dim_hist];
-    h_Sk = new int[dim_hist];
-    h_PSk = new float[dim_hist];
     h_finalValues = new int[dim_hist];
 
     for (int i = 0; i < dim_hist; ++i) h_hist[i] = 0;
@@ -206,6 +210,29 @@ int main()
     display_histogram(h_hist, "CUDA Histogram");
 
     // ******************************************************************************************
+    // Compute Cumulative Histogram 
+
+    cudaStatus = cudaMalloc((void**)&d_cumHist, dim_hist * sizeof(int));
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaMalloc failed!");
+        goto Error;
+    }
+
+    cumHistKernel <<< 1, dim_hist >> > (d_cumHist, d_hist);
+
+    cudaThreadSynchronize();
+    cudaStatus = cudaGetLastError();
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        goto Error;
+    }
+    cudaStatus = cudaDeviceSynchronize();
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
+        goto Error;
+    }
+
+    // ******************************************************************************************
     // Probability distribution for intensity levels
 
     cudaStatus = cudaMalloc((void**)&d_PRk, dim_hist * sizeof(float));
@@ -227,16 +254,6 @@ int main()
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
         goto Error;
     }
-    cudaStatus = cudaMemcpy(h_PRk, d_PRk, dim_hist * sizeof(float), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-    // ******************************************************************************************
-    // Compute Cumulative Histogram 
-
-    compute_cumulative_histogram(h_hist, h_cumHist);
 
     // ******************************************************************************************
     // Scaling operation
@@ -244,16 +261,6 @@ int main()
     cudaStatus = cudaMalloc((void**)&d_Sk, dim_hist * sizeof(int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-    cudaStatus = cudaMalloc((void**)&d_cumHist, dim_hist * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-    cudaStatus = cudaMemcpy(d_cumHist, h_cumHist, dim_hist * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
@@ -270,24 +277,13 @@ int main()
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
         goto Error;
     }
-    cudaStatus = cudaMemcpy(h_Sk, d_Sk, dim_hist * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
 
     // ******************************************************************************************
     // Mapping operation
 
-    for (int i = 0; i < 256; i++) h_PSk[i] = 0.0;
     cudaStatus = cudaMalloc((void**)&d_PSk, dim_hist * sizeof(float));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
-    cudaStatus = cudaMemcpy(d_PSk, h_PSk, dim_hist * sizeof(float), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
@@ -302,11 +298,6 @@ int main()
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-    cudaStatus = cudaMemcpy(h_PSk, d_PSk, dim_hist * sizeof(float), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
@@ -392,10 +383,6 @@ Error:
     // Free host memory
     std::free(h_hist);
     std::free(h_image);
-    std::free(h_PRk);
-    std::free(h_cumHist);
-    std::free(h_Sk);
-    std::free(h_PSk);
     std::free(h_finalValues);
     // Destroy CUDA Event API Events
     cudaEventDestroy(start);
