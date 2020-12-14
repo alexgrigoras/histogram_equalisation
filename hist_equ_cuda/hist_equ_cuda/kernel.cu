@@ -62,16 +62,19 @@ __global__ void histogramKernel(int* d_out, int* d_in) {
 
     atomicAdd(&d_out[value], 1);
 }
+
 __global__ void prkKernel(float* d_out, int* d_in, int size)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = (float)d_in[i] / size;
 }
+
 __global__ void skKernel(int* d_out, int* d_in, float alpha)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = round((float)d_in[i] * alpha);
 }
+
 __global__ void pskKernel(float* d_out, int* d_in_a, float* d_in_b)
 {
     int in = blockIdx.x * blockDim.x + threadIdx.x;
@@ -79,11 +82,13 @@ __global__ void pskKernel(float* d_out, int* d_in_a, float* d_in_b)
 
     atomicAdd(&d_out[out], d_in_b[in]);
 }
+
 __global__ void finalValuesKernel(int* d_out, float* d_in)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = round(d_in[i] * 255);
 }
+
 __global__ void finalImageKernel(int* d_out, int* d_in, int* d_img)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -136,17 +141,19 @@ int main()
         }
     }
 
+    // Check CUDA device
+    cudaStatus = cudaSetDevice(0);
+    if (cudaStatus != cudaSuccess) {
+        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+        goto Error;
+    }
+
     cudaEventRecord(start, 0);  // Start global timers
 
     // ******************************************************************************************
     // Compute image histogram
 
     // Copy host array to device array
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
     cudaStatus = cudaMalloc((void**)&d_image, dim_image * sizeof(int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
@@ -171,10 +178,8 @@ int main()
     }
 
     // launch kernel
-    dim3 dimGrid(numBlocks);
-    dim3 dimBlock(numThreadsPerBlock);
-    histogramKernel <<< dimGrid, dimBlock >>> (d_hist, d_image);
-
+    histogramKernel <<< numBlocks, numThreadsPerBlock >>> (d_hist, d_image);
+    
     // block until the device has completed
     cudaThreadSynchronize();
     // device to host copy
