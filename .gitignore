@@ -41,3 +41,10 @@ hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
 *.db
 *.db
 hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
+hist_equ/.vs/hist_equ/v16/.suo
+hist_equ/hist_equ/x64/Debug/hist_equ.log
+*.tlog
+*.idb
+*.pdb
+*.ilk
+*.pdb

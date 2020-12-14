@@ -1,5 +1,4 @@
 ﻿  hist_equ.cpp
-D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ\hist_equ\hist_equ.cpp(66,72): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ\hist_equ\hist_equ.cpp(92,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ\hist_equ\hist_equ.cpp(97,39): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ\hist_equ\hist_equ.cpp(62,72): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ\hist_equ\hist_equ.cpp(83,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
   hist_equ.vcxproj -> D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ\x64\Debug\hist_equ.exe
