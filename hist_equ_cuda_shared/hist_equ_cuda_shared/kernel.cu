@@ -22,11 +22,6 @@ void print_array(float* vect, int  dim)
     for (long i = 0; i < dim; i++) printf("%f ", vect[i]);
 }
 
-void compute_cumulative_histogram(int histogram[], int cumulativeHistogram[]) {
-    cumulativeHistogram[0] = histogram[0];
-    for (int i = 1; i < 256; i++) cumulativeHistogram[i] = histogram[i] + cumulativeHistogram[i - 1];
-}
-
 void display_histogram(int histogram[], const char* name) {
     int histogramWidth = 512;
     int histogramHeight = 400;
@@ -81,7 +76,7 @@ __global__ void cumHistKernelHS(int* d_out, int* d_in, int n)
     d_out[idx] = temp[pout * n + idx];
 }
 
-// Shared memory using balanced trees 
+// Shared memory using balanced trees (optimization)
 __global__ void cumHistKernelBT(int* g_odata, int* g_idata, int n)
 {
     extern __shared__ int temp[]; // allocated on invocation
@@ -124,16 +119,19 @@ __global__ void cumHistKernelBT(int* g_odata, int* g_idata, int n)
     g_odata[2 * thid + 1] = temp[2 * thid + 1];
 }
 
-__global__ void histogramKernel(int* d_out, int* d_in) {
+__global__ void histogramKernel(int* d_out, int* d_in, long size)
+{
+    extern __shared__ unsigned int tempHist[];
     int tx = threadIdx.x;
-    int in = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int idx = tx + blockIdx.x * blockDim.x;
 
-    extern __shared__ int s_data[];
-    s_data[tx] = d_in[in];
-
+    tempHist[tx] = 0;
     __syncthreads();
-
-    atomicAdd(&d_out[s_data[tx]], 1);
+    if (idx < size) {
+        atomicAdd(&(tempHist[d_in[idx]]), 1);       // add to private histogram
+    }
+    __syncthreads();
+    atomicAdd(&(d_out[tx]), tempHist[tx]);          // contribute to global histogram.
 }
 
 __global__ void prkKernel(float* d_out, int* d_in, int size)
@@ -226,7 +224,7 @@ int main()
     // Compute image histogram
 
     // launch kernel
-    histogramKernel <<< numBlocks, numThreadsPerBlock, numThreadsPerBlock * sizeof(int) >>> (h_hist, h_image);
+    histogramKernel << < numBlocks, numThreadsPerBlock, dim_hist * sizeof(int) >> > (h_hist, h_image, dim_image);
     
     // block until the device has completed
     cudaThreadSynchronize();
