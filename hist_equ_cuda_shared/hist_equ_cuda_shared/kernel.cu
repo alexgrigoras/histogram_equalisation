@@ -189,11 +189,11 @@ int main()
     cudaError_t cudaStatus;
     int numThreadsPerBlock = 256;                                   // define block size
     int numBlocks = dim_image / numThreadsPerBlock;
-    cudaEvent_t start, stop;
+    //cudaEvent_t start, stop;
     float elapsedTime;
 
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+    //cudaEventCreate(&start);
+    //cudaEventCreate(&stop);
 
     cudaMallocManaged(&h_hist, dim_hist * sizeof(int));
     cudaMallocManaged(&h_image, dim_image * sizeof(int));
@@ -218,7 +218,7 @@ int main()
         goto Error;
     }
 
-    cudaEventRecord(start, 0);  // Start global timers
+    //cudaEventRecord(start, 0);  // Start global timers
 
     // ******************************************************************************************
     // Compute image histogram
@@ -243,7 +243,7 @@ int main()
         goto Error;
     }
 
-    display_histogram(h_hist, "CUDA Histogram");
+    //display_histogram(h_hist, "CUDA Histogram");
 
     // ******************************************************************************************
     // Compute Cumulative Histogram 
@@ -331,7 +331,7 @@ int main()
         goto Error;
     }
 
-    display_histogram(h_finalValues, "CUDA Equalized histogram");
+    //display_histogram(h_finalValues, "CUDA Equalized histogram");
 
     // ******************************************************************************************
     // Creating equalized image
@@ -356,11 +356,12 @@ int main()
         }
     }
 
+    /*
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution time GPU: %f\n", elapsedTime);
-
+    */
 Error:
     // Free device memory
     cudaFree(h_hist);
@@ -372,14 +373,15 @@ Error:
     cudaFree(h_finalValues);
     // Free host memory
     // Destroy CUDA Event API Events
+    /*
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
     // Display equalized image
     namedWindow("CUDA Equilized Image", WINDOW_NORMAL);
     imshow("CUDA Equilized Image", image);
-
     waitKey();
+    */
 
     return 0;
 }
