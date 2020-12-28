@@ -79,31 +79,32 @@ int main()
     string img_name = image_str + extension;
     Mat image = imread(img_name, IMREAD_GRAYSCALE);
     Mat equalized_image = image.clone();
-    int size = image.rows * image.cols;
-    float alpha = 255.0 / size;
-    int histogram[256];
-    int cumulativeHistogram[256];
-    float PRk[256];
-    int Sk[256];
-    float PSk[256];
-    int finalValues[256];
+    int dim_image = image.rows * image.cols;
+    int dim_hist = 256;
+    float alpha = 255.0 / dim_image;
+    int* histogram = new int[dim_hist];
+    int* cumulativeHistogram = new int[dim_hist];
+    float* PRk = new float[dim_hist];
+    int* Sk = new int[dim_hist];
+    float *PSk = new float[dim_hist];
+    int* finalValues = new int[dim_hist];
     int i, x, y;
+
+    for (i = 0; i < 256; i++) PSk[i] = 0;
 
     auto start = high_resolution_clock::now();
 
     compute_histogram(image, histogram);
 
-    // Probability distribution for intensity levels
-    for (i = 0; i < 256; i++) PRk[i] = (float)histogram[i] / size;
-
     compute_cumulative_histogram(histogram, cumulativeHistogram);
 
-    // Scaling operation
-    for (i = 0; i < 256; i++) Sk[i] = cvRound((float)cumulativeHistogram[i] * alpha);
-
-    // Mapping operation
-    for (i = 0; i < 256; i++) PSk[i] = 0;
-    for (i = 0; i < 256; i++) PSk[Sk[i]] += PRk[i];
+    for (i = 0; i < 256; i++)
+    {
+        // Scaling operation
+        Sk[i] = cvRound((float)cumulativeHistogram[i] * alpha);
+        // Probability distribution for intensity levels
+        PSk[Sk[i]] += (float)histogram[i] / dim_image;
+    }
 
     // Rounding to get final values
     for (i = 0; i < 256; i++) finalValues[i] = cvRound(PSk[i] * 255);

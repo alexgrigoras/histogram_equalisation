@@ -63,3 +63,8 @@ hist_equ_cuda_optimized/hist_equ_cuda_optimized/x64/Debug/hist_equ_cuda_optimize
 hist_equ_cuda_optimized/x64/Debug/hist_equ_cuda_optimized.exp
 hist_equ_cuda_optimized/x64/Debug/kernel.cu-1828212320.deps
 *.cache
+hist_equ/hist_equ/x64/Debug/hist_equ.log
+hist_equ/hist_equ/x64/Debug/vc142.idb
+hist_equ/hist_equ/x64/Debug/vc142.pdb
+*.ilk
+*.pdb
