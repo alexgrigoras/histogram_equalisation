@@ -6,8 +6,6 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <math.h>
-#include <string.h>
-#include <iostream>
 
 using namespace cv;
 using namespace std;
@@ -105,13 +103,16 @@ __global__ void finalImageKernel(int* d_out, int* d_in, int* d_img)
 
 int main()
 {
-    /*
-    string image_str = "../images/img0";
-    string extension = ".jpg";
-    string img_name = image_str + extension;
-    */
-    Mat image = imread("D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda/x64/Debug/img0.jpg", IMREAD_GRAYSCALE);
+    char img_path[1024];
 
+    printf("Starting application\n");
+    printf("Insert image path: ");
+
+    scanf_s("%1023[^\n]", img_path, (unsigned)_countof(img_path));
+
+    printf("Showing results\n");
+
+    Mat image = imread(img_path, IMREAD_GRAYSCALE);
     int h = image.rows, w = image.cols;                             // image dimensions
     int *h_hist, *d_hist;
     int *h_image, *d_image;
@@ -127,11 +128,12 @@ int main()
     cudaError_t cudaStatus;
     int numThreadsPerBlock = 256;                                   // define block size
     int numBlocks = dim_image / numThreadsPerBlock;
-    //cudaEvent_t start, stop;
+    
+    cudaEvent_t start, stop;
     float elapsedTime;
 
-    //cudaEventCreate(&start);
-    //cudaEventCreate(&stop);
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
     h_hist = new int[dim_hist];
     h_image = new int[dim_image];
@@ -152,7 +154,7 @@ int main()
         goto Error;
     }
 
-    //cudaEventRecord(start, 0);  // Start global timers
+    cudaEventRecord(start, 0);  // Start global timers
 
     // ******************************************************************************************
     // Compute image histogram
@@ -207,7 +209,7 @@ int main()
         goto Error;
     }
 
-    //display_histogram(h_hist, "CUDA Histogram");
+    display_histogram(h_hist, "CUDA Histogram");
 
     // ******************************************************************************************
     // Compute Cumulative Histogram 
@@ -329,7 +331,7 @@ int main()
         goto Error;
     }
 
-    //display_histogram(h_finalValues, "CUDA Equalized histogram");
+    display_histogram(h_finalValues, "CUDA Equalized histogram");
 
     // ******************************************************************************************
     // Creating equalized image
@@ -365,12 +367,10 @@ int main()
         }
     }
 
-    /*
     cudaEventRecord(stop, 0);                           
     cudaEventSynchronize(stop);                         
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution time GPU: %f\n", elapsedTime);
-    */
 
 Error:
     // Free device memory
@@ -387,15 +387,13 @@ Error:
     std::free(h_image);
     std::free(h_finalValues);
     // Destroy CUDA Event API Events
-    //cudaEventDestroy(start);
-    //cudaEventDestroy(stop);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     // Display equalized image
-    /*
     namedWindow("CUDA Equilized Image", WINDOW_NORMAL);
     imshow("CUDA Equilized Image", image);
     waitKey();
-    */
 
     return 0;
 }

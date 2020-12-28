@@ -73,7 +73,16 @@ void display_histogram(int histogram[], const char* name) {
 
 int main()
 {
-    Mat image = imread("../images/img0", IMREAD_GRAYSCALE);
+    char img_path[1024];
+
+    printf("Starting application\n");
+    printf("Insert image path: ");
+
+    scanf_s("%1023[^\n]", img_path, (unsigned)_countof(img_path));
+
+    printf("Showing results\n");
+
+    Mat image = imread(img_path, IMREAD_GRAYSCALE);
     Mat equalized_image = image.clone();
     int dim_image = image.rows * image.cols;
     int dim_hist = 256;
