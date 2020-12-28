@@ -239,45 +239,16 @@ int main()
 
     // ******************************************************************************************
     // Probability distribution for intensity levels
-
     prkKernel << < 1, dim_hist >> > (h_PRk, h_hist, dim_image);
-    cudaThreadSynchronize();
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
 
-    // ******************************************************************************************
     // Scaling operation
-
     skKernel << < 1, dim_hist >> > (h_Sk, h_cumHist, alpha);
-    cudaThreadSynchronize();
 
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
-    // ******************************************************************************************
     // Mapping operation
-
-    for (int i = 0; i < 256; i++) h_PSk[i] = 0.0;
-
     pskKernel << < 1, dim_hist >> > (h_PSk, h_Sk, h_PRk);
 
     cudaThreadSynchronize();
+
     cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
@@ -288,35 +259,17 @@ int main()
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
         goto Error;
     }
-
     // ******************************************************************************************
     // Rounding to get final values
-
     finalValuesKernel << < 1, dim_hist >> > (h_finalValues, h_PSk);
 
-    cudaThreadSynchronize();
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
-    //display_histogram(h_finalValues, "CUDA Equalized histogram");
-
-    // ******************************************************************************************
     // Creating equalized image
-
     finalImageKernel << < numBlocks, numThreadsPerBlock >> > (h_image, h_Sk);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "[final] addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
         goto Error;
     }
     cudaStatus = cudaDeviceSynchronize();
@@ -325,12 +278,15 @@ int main()
         goto Error;
     }
 
+    // ******************************************************************************************
+    
+    //display_histogram(h_finalValues, "CUDA Equalized histogram");
+
     for (int i = 0; i < h; i++) {
         for (int j = 0; j < w; j++) {
             image.at<uchar>(i, j) = h_image[i * w + j];
         }
-    }
-
+    }    
     /*
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
@@ -357,6 +313,5 @@ Error:
     imshow("CUDA Equilized Image", image);
     waitKey();
     */
-
     return 0;
 }
