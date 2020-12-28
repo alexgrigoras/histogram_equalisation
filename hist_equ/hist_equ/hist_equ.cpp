@@ -3,7 +3,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <chrono> 
 #include <math.h>
-#include <string.h>
 
 using namespace std::chrono;
 using namespace std;
@@ -74,10 +73,7 @@ void display_histogram(int histogram[], const char* name) {
 
 int main()
 {
-    string image_str = "../images/img0";
-    string extension = ".jpg";
-    string img_name = image_str + extension;
-    Mat image = imread(img_name, IMREAD_GRAYSCALE);
+    Mat image = imread("../images/img0", IMREAD_GRAYSCALE);
     Mat equalized_image = image.clone();
     int dim_image = image.rows * image.cols;
     int dim_hist = 256;
