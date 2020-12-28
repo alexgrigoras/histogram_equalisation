@@ -55,3 +55,11 @@ hist_equ_cuda/.vs/hist_equ_cuda/v16/Browse.VC.db
 hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
 hist_equ_cuda_shared/.vs/hist_equ_cuda_shared/v16/.suo
 *.log
+hist_equ_cuda_optimized/.vs/hist_equ_cuda_optimized/v16/.suo
+hist_equ_cuda_optimized/hist_equ_cuda_optimized/x64/Debug/kernel.cu-660781910.deps
+hist_equ_cuda_optimized/hist_equ_cuda_optimized/x64/Debug/kernel.cu.cache
+hist_equ_cuda_optimized/x64/Debug/hist_equ_cuda_optimized.exe.recipe
+hist_equ_cuda_optimized/hist_equ_cuda_optimized/x64/Debug/hist_equ_cuda_optimized.exe.recipe
+hist_equ_cuda_optimized/x64/Debug/hist_equ_cuda_optimized.exp
+hist_equ_cuda_optimized/x64/Debug/kernel.cu-1828212320.deps
+*.cache

@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hist_equ_cuda_optimized", "hist_equ_cuda_optimized\hist_equ_cuda_optimized.vcxproj", "{9FF1B8D8-653A-41C7-A4A1-811DF95CBD70}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9FF1B8D8-653A-41C7-A4A1-811DF95CBD70}.Debug|x64.ActiveCfg = Debug|x64
+		{9FF1B8D8-653A-41C7-A4A1-811DF95CBD70}.Debug|x64.Build.0 = Debug|x64
+		{9FF1B8D8-653A-41C7-A4A1-811DF95CBD70}.Release|x64.ActiveCfg = Release|x64
+		{9FF1B8D8-653A-41C7-A4A1-811DF95CBD70}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8D88037C-4181-41C7-98B0-4525C8BA6B43}
+	EndGlobalSection
+EndGlobal
