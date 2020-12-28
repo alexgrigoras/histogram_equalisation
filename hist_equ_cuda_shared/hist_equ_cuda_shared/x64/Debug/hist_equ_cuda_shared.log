@@ -1,17 +1,17 @@
 ﻿  Compiling CUDA source file kernel.cu...
   
   D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ_cuda_shared\hist_equ_cuda_shared>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.1\bin\nvcc.exe" -gencode=arch=compute_52,code=\"sm_52,compute_52\" --use-local-env -ccbin "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.28.29333\bin\HostX86\x64" -x cu   -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.1\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.1\include"  -G   --keep-dir x64\Debug -maxrregcount=0  --machine 64 --compile -cudart static  -g   -DWIN32 -DWIN64 -D_DEBUG -D_CONSOLE -D_MBCS -Xcompiler "/EHsc /W3 /nologo /Od /Fdx64\Debug\vc142.pdb /FS /Zi /RTC1 /MDd " -o x64\Debug\kernel.cu.obj "D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ_cuda_shared\hist_equ_cuda_shared\kernel.cu" 
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(193): warning : variable "elapsedTime" was declared but never referenced
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(150): warning : variable "elapsedTime" was declared but never referenced
   
   kernel.cu
 D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(45): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(188): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(230): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(253): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(269): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(285): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(305): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(322): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(341): warning C4996: 'cudaThreadSynchronize': was declared deprecated
-D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(193): warning C4101: 'elapsedTime': unreferenced local variable
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(145): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(187): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(210): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(226): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(242): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(262): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(279): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(298): warning C4996: 'cudaThreadSynchronize': was declared deprecated
+D:/University/Master/Year 2/GPUP/Project/histogram_equalization/hist_equ_cuda_shared/hist_equ_cuda_shared/kernel.cu(150): warning C4101: 'elapsedTime': unreferenced local variable
   hist_equ_cuda_shared.vcxproj -> D:\University\Master\Year 2\GPUP\Project\histogram_equalization\hist_equ_cuda_shared\x64\Debug\hist_equ_cuda_shared.exe

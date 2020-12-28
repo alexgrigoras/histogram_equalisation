@@ -53,3 +53,5 @@ hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
 hist_equ_cuda/.vs/hist_equ_cuda/v16/Browse.VC.db
 *.db
 hist_equ_cuda/.vs/hist_equ_cuda/v16/.suo
+hist_equ_cuda_shared/.vs/hist_equ_cuda_shared/v16/.suo
+*.log
