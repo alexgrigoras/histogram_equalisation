@@ -103,6 +103,47 @@ __global__ void histogramKernel(int* bins, long* input, long numElems) {
     }
 }
 
+__global__ void histogramKernel2(int* ohist, long* idata, long dataSize, int nbin) 
+{
+    // https://sett.com/gpgpu/cuda-leveraging-implicit-intra-warp-synchronization-in-reduction-algorithms
+
+    __shared__ volatile int sh_data_temp[256][32];
+
+    unsigned int tidxx = threadIdx.x;
+    unsigned int gTidx = blockDim.x * blockIdx.x + threadIdx.x;
+
+    for (int i = 0; i < nbin; i++) 
+    {
+        sh_data_temp[i][tidxx] = 0;
+    }
+    __syncthreads();
+
+    if (gTidx < dataSize)
+    {
+        float item = idata[gTidx];
+        int bin = ((int)item) % nbin;
+        sh_data_temp[bin][tidxx] += 1;
+    }
+    __syncthreads();
+
+    if (tidxx < 16)
+    {
+        for (int k = 0; k < nbin; k++)
+        {
+            sh_data_temp[k][tidxx] += sh_data_temp[k][tidxx + 16];
+            sh_data_temp[k][tidxx] += sh_data_temp[k][tidxx + 8];
+            sh_data_temp[k][tidxx] += sh_data_temp[k][tidxx + 4];
+            sh_data_temp[k][tidxx] += sh_data_temp[k][tidxx + 2];
+            sh_data_temp[k][tidxx] += sh_data_temp[k][tidxx + 1];
+
+            if (tidxx == 0)
+            {
+                atomicAdd(&ohist[k], sh_data_temp[k][0]);
+            }
+        }
+    }
+}
+
 // Shared memory using balanced trees (optimization)
 __global__ void cumHistKernelBT(int* g_odata, int* g_idata, int n)
 {
@@ -190,6 +231,7 @@ int main()
     printf("Showing results\n");
 
     Mat image = imread(img_path, IMREAD_GRAYSCALE);
+
     int h = image.rows, w = image.cols;                             // image dimensions
     int* h_hist;
     long* h_image;
@@ -241,6 +283,7 @@ int main()
     dim3 threadPerBlock(BLOCK_SIZE, 1, 1);
     dim3 blockPerGrid(ceil(dim_image / (float)BLOCK_SIZE), 1, 1);
     histogramKernel << <blockPerGrid, threadPerBlock >> > (h_hist, h_image, dim_image);
+    //histogramKernel2 << <dim_image/32, 32 >> > (h_hist, h_image, dim_image, dim_hist);
 
     // block until the device has completed
     cudaThreadSynchronize();
@@ -333,8 +376,7 @@ int main()
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
-    //printf("Execution time GPU: %f\n", elapsedTime);
-    printf("%f\n", elapsedTime);
+    printf("Execution time GPU: %f\n", elapsedTime);
 
 Error:
     // Free device memory
