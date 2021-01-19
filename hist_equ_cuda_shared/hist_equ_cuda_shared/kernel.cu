@@ -49,6 +49,21 @@ void display_histogram(int histogram[], const char* name) {
     imshow(name, histogramImage);
 }
 
+__global__ void histogramKernel(int* d_out, long* d_in, long size)
+{
+    extern __shared__ unsigned int tempHist[];
+    int tx = threadIdx.x;
+    unsigned int idx = tx + blockIdx.x * blockDim.x;
+
+    tempHist[tx] = 0;
+    __syncthreads();
+    if (idx < size) {
+        atomicAdd(&(tempHist[d_in[idx]]), 1);       // add to private histogram
+    }
+    __syncthreads();
+    atomicAdd(&(d_out[tx]), tempHist[tx]);          // contribute to global histogram.
+}
+
 // Hillis & Steele Parallel Scan Algorithm
 __global__ void cumHistKernelHS(int* d_out, int* d_in, int n)
 {
@@ -74,22 +89,7 @@ __global__ void cumHistKernelHS(int* d_out, int* d_in, int n)
     d_out[idx] = temp[pout * n + idx];
 }
 
-__global__ void histogramKernel(int* d_out, int* d_in, long size)
-{
-    extern __shared__ unsigned int tempHist[];
-    int tx = threadIdx.x;
-    unsigned int idx = tx + blockIdx.x * blockDim.x;
-
-    tempHist[tx] = 0;
-    __syncthreads();
-    if (idx < size) {
-        atomicAdd(&(tempHist[d_in[idx]]), 1);       // add to private histogram
-    }
-    __syncthreads();
-    atomicAdd(&(d_out[tx]), tempHist[tx]);          // contribute to global histogram.
-}
-
-__global__ void prkKernel(float* d_out, int* d_in, int size)
+__global__ void prkKernel(float* d_out, int* d_in, long size)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = (float)d_in[i] / size;
@@ -115,7 +115,7 @@ __global__ void finalValuesKernel(int* d_out, float* d_in)
     d_out[i] = round(d_in[i] * 255);
 }
 
-__global__ void finalImageKernel(int* d_out, int* d_in)
+__global__ void finalImageKernel(long* d_out, int* d_in)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = (uchar)(d_in[d_out[i]]);
@@ -135,14 +135,14 @@ int main()
     Mat image = imread(img_path, IMREAD_GRAYSCALE);
     int h = image.rows, w = image.cols;                             // image dimensions
     int* h_hist;
-    int* h_image;
+    long* h_image;
     float* h_PRk;
     int* h_cumHist;
     int* h_Sk;
     float* h_PSk;
     int* h_finalValues;
     int dim_hist = 256;
-    int dim_image = h * w;                                          // image size
+    long dim_image = h * w;                                         // image size
     float alpha = 255.0 / dim_image;
     cudaError_t cudaStatus;
     int numThreadsPerBlock = 256;                                   // define block size
@@ -152,9 +152,10 @@ int main()
 
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);  // Start global timers
 
     cudaMallocManaged(&h_hist, dim_hist * sizeof(int));
-    cudaMallocManaged(&h_image, dim_image * sizeof(int));
+    cudaMallocManaged(&h_image, dim_image * sizeof(long));
     cudaMallocManaged(&h_PRk, dim_hist * sizeof(float));
     cudaMallocManaged(&h_cumHist, dim_hist * sizeof(int));
     cudaMallocManaged(&h_Sk, dim_hist * sizeof(int));
@@ -176,14 +177,12 @@ int main()
         goto Error;
     }
 
-    cudaEventRecord(start, 0);  // Start global timers
-
     // ******************************************************************************************
     // Compute image histogram
 
     // launch kernel
     histogramKernel << < numBlocks, numThreadsPerBlock, dim_hist * sizeof(int) >> > (h_hist, h_image, dim_image);
-    
+
     // block until the device has completed
     cudaThreadSynchronize();
     // device to host copy
@@ -252,15 +251,15 @@ int main()
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
         goto Error;
     }
- 
+
     // ******************************************************************************************
     // Mapping operation
 
     for (int i = 0; i < 256; i++) h_PSk[i] = 0.0;
-   
+
     pskKernel << < 1, dim_hist >> > (h_PSk, h_Sk, h_PRk);
-    
-    cudaThreadSynchronize();    
+
+    cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
@@ -271,11 +270,11 @@ int main()
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
         goto Error;
     }
-    
+
     // ******************************************************************************************
     // Rounding to get final values
 
-    finalValuesKernel <<< 1, dim_hist >>> (h_finalValues, h_PSk);
+    finalValuesKernel << < 1, dim_hist >> > (h_finalValues, h_PSk);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -293,7 +292,7 @@ int main()
 
     // ******************************************************************************************
     // Creating equalized image
-    
+
     finalImageKernel << < numBlocks, numThreadsPerBlock >> > (h_image, h_Sk);
 
     cudaThreadSynchronize();
@@ -318,7 +317,7 @@ int main()
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution time GPU: %f\n", elapsedTime);
-
+    
 Error:
     // Free device memory
     cudaFree(h_hist);
@@ -330,7 +329,6 @@ Error:
     cudaFree(h_finalValues);
     // Free host memory
     // Destroy CUDA Event API Events
-
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
