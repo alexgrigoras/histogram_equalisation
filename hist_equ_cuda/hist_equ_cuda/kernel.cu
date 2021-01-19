@@ -49,7 +49,7 @@ void display_histogram(int histogram[], const char* name) {
     imshow(name, histogramImage);
 }
 
-__global__ void histogramKernel(int* d_out, int* d_in) {
+__global__ void histogramKernel(int* d_out, long* d_in) {
     int in = blockIdx.x * blockDim.x + threadIdx.x;
     int value = d_in[in];
 
@@ -95,7 +95,7 @@ __global__ void finalValuesKernel(int* d_out, float* d_in)
     d_out[i] = round(d_in[i] * 255);
 }
 
-__global__ void finalImageKernel(int* d_out, int* d_in, int* d_img)
+__global__ void finalImageKernel(int* d_out, int* d_in, long* d_img)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = (uchar)(d_in[d_img[i]]);
@@ -114,29 +114,29 @@ int main()
 
     Mat image = imread(img_path, IMREAD_GRAYSCALE);
     int h = image.rows, w = image.cols;                             // image dimensions
-    int *h_hist, *d_hist;
-    int *h_image, *d_image;
-    float *d_PRk;
-    int *d_cumHist;
-    int *d_Sk;
-    float *d_PSk;
-    int *h_finalValues, *d_finalValues;
+    int* h_hist, * d_hist;
+    long* h_image, * d_image;
+    float* d_PRk;
+    int* d_cumHist;
+    int* d_Sk;
+    float* d_PSk;
+    int* h_finalValues, * d_finalValues;
     int* d_finalImage;
     int dim_hist = 256;
-    int dim_image = h * w;                                          // image size
+    long dim_image = h * w;                                          // image size
     float alpha = 255.0 / dim_image;
     cudaError_t cudaStatus;
     int numThreadsPerBlock = 256;                                   // define block size
     int numBlocks = dim_image / numThreadsPerBlock;
-    
     cudaEvent_t start, stop;
     float elapsedTime;
 
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);  // Start global timers
 
     h_hist = new int[dim_hist];
-    h_image = new int[dim_image];
+    h_image = new long[dim_image];
     h_finalValues = new int[dim_hist];
 
     for (int i = 0; i < dim_hist; ++i) h_hist[i] = 0;
@@ -154,13 +154,11 @@ int main()
         goto Error;
     }
 
-    cudaEventRecord(start, 0);  // Start global timers
-
     // ******************************************************************************************
     // Compute image histogram
 
     // Copy host array to device array
-    cudaStatus = cudaMalloc((void**)&d_image, dim_image * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&d_image, dim_image * sizeof(long));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
@@ -177,15 +175,15 @@ int main()
         goto Error;
     }
     // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(d_image, h_image, dim_image * sizeof(int), cudaMemcpyHostToDevice);
+    cudaStatus = cudaMemcpy(d_image, h_image, dim_image * sizeof(long), cudaMemcpyHostToDevice);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
     // launch kernel
-    histogramKernel <<< numBlocks, numThreadsPerBlock >>> (d_hist, d_image);
-    
+    histogramKernel << < numBlocks, numThreadsPerBlock >> > (d_hist, d_image);
+
     // block until the device has completed
     cudaThreadSynchronize();
     // device to host copy
@@ -220,7 +218,7 @@ int main()
         goto Error;
     }
 
-    cumHistKernel <<< 1, dim_hist >> > (d_cumHist, d_hist);
+    cumHistKernel << < 1, dim_hist >> > (d_cumHist, d_hist);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -243,7 +241,7 @@ int main()
         goto Error;
     }
 
-    prkKernel <<< 1, dim_hist >>> (d_PRk, d_hist, dim_image);
+    prkKernel << < 1, dim_hist >> > (d_PRk, d_hist, dim_image);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -266,7 +264,7 @@ int main()
         goto Error;
     }
 
-    skKernel <<< 1, dim_hist >>> (d_Sk, d_cumHist, alpha);
+    skKernel << < 1, dim_hist >> > (d_Sk, d_cumHist, alpha);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -342,7 +340,7 @@ int main()
         goto Error;
     }
 
-    finalImageKernel <<< numBlocks, numThreadsPerBlock >>> (d_finalImage, d_Sk, d_image);
+    finalImageKernel << < numBlocks, numThreadsPerBlock >> > (d_finalImage, d_Sk, d_image);
 
     cudaThreadSynchronize();
     cudaStatus = cudaGetLastError();
@@ -355,7 +353,7 @@ int main()
         fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
         goto Error;
     }
-    cudaStatus = cudaMemcpy(h_image, d_finalImage, dim_image * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(h_image, d_finalImage, dim_image * sizeof(long), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
@@ -365,10 +363,9 @@ int main()
         for (int j = 0; j < w; j++) {
             image.at<uchar>(i, j) = h_image[i * w + j];
         }
-    }
-
-    cudaEventRecord(stop, 0);                           
-    cudaEventSynchronize(stop);                         
+    }    
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
     printf("Execution time GPU: %f\n", elapsedTime);
 
