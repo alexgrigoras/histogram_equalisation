@@ -12,6 +12,9 @@
 using namespace cv;
 using namespace std;
 
+#define BLOCK_SIZE 1024
+#define PRIVATE 1024
+
 void print_array(int* vect, int  dim)
 {
     for (long i = 0; i < dim; i++) printf("%d ", vect[i]);
@@ -49,6 +52,55 @@ void display_histogram(int histogram[], const char* name) {
 
     namedWindow(name, WINDOW_AUTOSIZE);
     imshow(name, histogramImage);
+}
+
+__global__ void histogramKernel(int* bins, long* input, long numElems) {
+    int tx = threadIdx.x; int bx = blockIdx.x;
+
+    // compute global thread coordinates
+    int i = (bx * blockDim.x) + tx;
+
+    // create a private histogram copy for each thread block
+    __shared__ unsigned int hist[PRIVATE];
+
+    // each thread must initialize more than 1 location
+    if (PRIVATE > BLOCK_SIZE) {
+        for (int j = tx; j < PRIVATE; j += BLOCK_SIZE) {
+            if (j < PRIVATE) {
+                hist[j] = 0;
+            }
+        }
+    }
+    // use the first `PRIVATE` threads of each block to init
+    else {
+        if (tx < PRIVATE) {
+            hist[tx] = 0;
+        }
+    }
+    // wait for all threads in the block to finish
+    __syncthreads();
+
+    // update private histogram
+    if (i < numElems) {
+        atomicAdd(&(hist[input[i]]), 1);
+    }
+    // wait for all threads in the block to finish
+    __syncthreads();
+
+    // each thread must update more than 1 location
+    if (PRIVATE > BLOCK_SIZE) {
+        for (int j = tx; j < PRIVATE; j += BLOCK_SIZE) {
+            if (j < PRIVATE) {
+                atomicAdd(&(bins[j]), hist[j]);
+            }
+        }
+    }
+    // use the first `PRIVATE` threads to update final histogram
+    else {
+        if (tx < PRIVATE) {
+            atomicAdd(&(bins[tx]), hist[tx]);
+        }
+    }
 }
 
 // Shared memory using balanced trees (optimization)
@@ -94,22 +146,7 @@ __global__ void cumHistKernelBT(int* g_odata, int* g_idata, int n)
     g_odata[2 * thid + 1] = temp[2 * thid + 1];
 }
 
-__global__ void histogramKernel(int* d_out, int* d_in, long size)
-{
-    extern __shared__ unsigned int tempHist[];
-    int tx = threadIdx.x;
-    unsigned int idx = tx + blockIdx.x * blockDim.x;
-
-    tempHist[tx] = 0;
-    __syncthreads();
-    if (idx < size) {
-        atomicAdd(&(tempHist[d_in[idx]]), 1);       // add to private histogram
-    }
-    __syncthreads();
-    atomicAdd(&(d_out[tx]), tempHist[tx]);          // contribute to global histogram.
-}
-
-__global__ void prkKernel(float* d_out, int* d_in, int size)
+__global__ void prkKernel(float* d_out, int* d_in, long size)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = (float)d_in[i] / size;
@@ -135,7 +172,7 @@ __global__ void finalValuesKernel(int* d_out, float* d_in)
     d_out[i] = round(d_in[i] * 255);
 }
 
-__global__ void finalImageKernel(int* d_out, int* d_in)
+__global__ void finalImageKernel(long* d_out, int* d_in)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     d_out[i] = (uchar)(d_in[d_out[i]]);
@@ -155,14 +192,14 @@ int main()
     Mat image = imread(img_path, IMREAD_GRAYSCALE);
     int h = image.rows, w = image.cols;                             // image dimensions
     int* h_hist;
-    int* h_image;
+    long* h_image;
     float* h_PRk;
     int* h_cumHist;
     int* h_Sk;
     float* h_PSk;
     int* h_finalValues;
     int dim_hist = 256;
-    int dim_image = h * w;                                          // image size
+    long dim_image = h * w;                                          // image size
     float alpha = 255.0 / dim_image;
     cudaError_t cudaStatus;
     int numThreadsPerBlock = 256;                                   // define block size
@@ -172,9 +209,10 @@ int main()
 
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);  // Start global timers
 
     cudaMallocManaged(&h_hist, dim_hist * sizeof(int));
-    cudaMallocManaged(&h_image, dim_image * sizeof(int));
+    cudaMallocManaged(&h_image, dim_image * sizeof(long));
     cudaMallocManaged(&h_PRk, dim_hist * sizeof(float));
     cudaMallocManaged(&h_cumHist, dim_hist * sizeof(int));
     cudaMallocManaged(&h_Sk, dim_hist * sizeof(int));
@@ -196,13 +234,13 @@ int main()
         goto Error;
     }
 
-    cudaEventRecord(start, 0);  // Start global timers
-
     // ******************************************************************************************
     // Compute image histogram
 
     // launch kernel
-    histogramKernel << < numBlocks, numThreadsPerBlock, dim_hist * sizeof(int) >> > (h_hist, h_image, dim_image);
+    dim3 threadPerBlock(BLOCK_SIZE, 1, 1);
+    dim3 blockPerGrid(ceil(dim_image / (float)BLOCK_SIZE), 1, 1);
+    histogramKernel << <blockPerGrid, threadPerBlock >> > (h_hist, h_image, dim_image);
 
     // block until the device has completed
     cudaThreadSynchronize();
@@ -210,9 +248,10 @@ int main()
     // Check for any errors launching the kernel
     cudaStatus = cudaGetLastError();
     if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+        fprintf(stderr, "addKernel histo launch failed: %s\n", cudaGetErrorString(cudaStatus));
         goto Error;
     }
+
     // cudaDeviceSynchronize waits for the kernel to finish, and returns
     // any errors encountered during the launch.
     cudaStatus = cudaDeviceSynchronize();
@@ -282,20 +321,21 @@ int main()
     }
 
     // ******************************************************************************************
-    
+
     display_histogram(h_finalValues, "CUDA Equalized histogram");
 
     for (int i = 0; i < h; i++) {
         for (int j = 0; j < w; j++) {
             image.at<uchar>(i, j) = h_image[i * w + j];
         }
-    }    
-    
+    }
+
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsedTime, start, stop);    // cudaEventElapsedTime returns value in milliseconds.Resolution ~0.5ms
-    printf("Execution time GPU: %f\n", elapsedTime);
-    
+    //printf("Execution time GPU: %f\n", elapsedTime);
+    printf("%f\n", elapsedTime);
+
 Error:
     // Free device memory
     cudaFree(h_hist);
