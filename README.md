@@ -9,6 +9,8 @@ Algorithm for histogram equalization implemented using CPU and GPU with CUDA.
 - GPU version using CUDA with shared memory
 - GPU version using CUDA with shared memory and optimizations
 	- histogram kernel taken from [kevinzakka](https://github.com/kevinzakka) / [learn-cuda](https://github.com/kevinzakka/learn-cuda)
+	
+Further details are in the [Documentation](documentation.pdf).
 
 ## License
 The applications are licensed under the MIT license.
