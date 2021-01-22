@@ -12,8 +12,8 @@
 using namespace cv;
 using namespace std;
 
-#define BLOCK_SIZE 1024
-#define PRIVATE 1024
+#define BLOCK_SIZE 256
+#define PRIVATE 256
 
 void print_array(int* vect, int  dim)
 {
@@ -144,6 +144,45 @@ __global__ void histogramKernel2(int* ohist, long* idata, long dataSize, int nbi
     }
 }
 
+#define WARP_SIZE 32
+
+__global__ void histogramKernel3(int* histo, long* data, long size, const int BINS, const int R)
+{
+    extern __shared__ int Hs[];
+
+    const int warpid = (int)(threadIdx.x / WARP_SIZE);
+    const int lane = threadIdx.x % WARP_SIZE;
+    const int warps_block = blockDim.x / WARP_SIZE;
+
+    const int off_rep = (BINS + 1) * (threadIdx.x % R);
+    
+    const int begin = (size / warps_block) * warpid + WARP_SIZE * blockIdx.x + lane;
+    const int end = (size / warps_block) * (warpid + 1);
+    const int step = WARP_SIZE * gridDim.x;
+
+    for (int pos = threadIdx.x; pos < (BINS + 1) * R; pos += blockDim.x)
+        Hs[pos] = 0;
+
+    __syncthreads();
+
+    for (int i = begin; i < end; i += step)
+    {
+        int d = data[i];
+
+        atomicAdd(&Hs[off_rep + d], 1);
+    }
+
+    __syncthreads();
+
+    for (int pos = threadIdx.x; pos < BINS; pos += blockDim.x)
+    {
+        int sum = 0;
+        for (int base = 0; base < (BINS + 1) * R; base += BINS + 1)
+            sum += Hs[base + pos];
+        atomicAdd(histo + pos, sum);
+    }
+}
+
 // Shared memory using balanced trees (optimization)
 __global__ void cumHistKernelBT(int* g_odata, int* g_idata, int n)
 {
@@ -232,6 +271,7 @@ int main()
 
     Mat image = imread(img_path, IMREAD_GRAYSCALE);
 
+    Mat image = imread("D:/University/Master/Year 2/GPUP/Project/histogram_equalization/images/img0.jpg", IMREAD_GRAYSCALE);
     int h = image.rows, w = image.cols;                             // image dimensions
     int* h_hist;
     long* h_image;
@@ -280,10 +320,16 @@ int main()
     // Compute image histogram
 
     // launch kernel
+    /*
     dim3 threadPerBlock(BLOCK_SIZE, 1, 1);
     dim3 blockPerGrid(ceil(dim_image / (float)BLOCK_SIZE), 1, 1);
     histogramKernel << <blockPerGrid, threadPerBlock >> > (h_hist, h_image, dim_image);
+    */
     //histogramKernel2 << <dim_image/32, 32 >> > (h_hist, h_image, dim_image, dim_hist);
+
+    int BINS = dim_hist;
+    int R = 32;
+    histogramKernel3 << <numBlocks, numThreadsPerBlock, (BINS + 1)* R * sizeof(int) >> > (h_hist, h_image, BINS, dim_hist, R);
 
     // block until the device has completed
     cudaThreadSynchronize();
